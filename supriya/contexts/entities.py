@@ -568,6 +568,21 @@ class BusGroup(ContextObject):
         """
         self.context.free_bus_group(self)
 
+    def get(
+        self, sync: bool = True
+    ) -> Union[Awaitable[Optional[Sequence[float]]], Optional[Sequence[float]]]:
+        """
+        Get the control bus group's values.
+
+        Emit ``/c_getn`` requests.
+
+        :param sync: If true, communicate the request immediately. Otherwise bundle it
+            with the current request context.
+        """
+        return cast(Union["AsyncServer", "Server"], self.context).get_bus_range(
+            bus=self[0], count=len(self), sync=sync
+        )
+
     def map_symbol(self) -> str:
         """
         Get the bus group's map symbol.
@@ -577,6 +592,22 @@ class BusGroup(ContextObject):
         elif self.calculation_rate is CalculationRate.CONTROL:
             return f"c{self.id_}"
         raise InvalidCalculationRate
+
+    def set(self, values: Union[float, Sequence[float]]) -> None:
+        """
+        Set a range of control buses.
+
+        Emit ``/c_setn`` or ``/c_fill`` requests.
+
+        :param values: The values to write. If a float is passed, use that as a fill.
+        """
+        if isinstance(values, float):
+            if len(self) == 1:
+                self.context.set_bus(bus=self[0], value=values)
+            else:
+                self.context.fill_bus_range(bus=self[0], count=len(self), value=values)
+        else:
+            self.context.set_bus_range(bus=self[0], values=values)
 
 
 @dataclasses.dataclass(frozen=True)

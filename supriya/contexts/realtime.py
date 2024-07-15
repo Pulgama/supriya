@@ -11,7 +11,9 @@ import warnings
 from collections.abc import Sequence as SequenceABC
 from typing import (
     TYPE_CHECKING,
+    Any,
     Callable,
+    Coroutine,
     Dict,
     Iterable,
     List,
@@ -357,7 +359,7 @@ class BaseServer(Context):
     def on(
         self,
         event: Union[ServerLifecycleEvent, Iterable[ServerLifecycleEvent]],
-        callback: Callable[[ServerLifecycleEvent], None],
+        callback: Callable[[ServerLifecycleEvent], Optional[Coroutine[Any, Any, None]]],
     ) -> None:
         if isinstance(event, ServerLifecycleEvent):
             events_ = [event]
@@ -554,6 +556,9 @@ class Server(BaseServer):
 
     def _on_lifecycle_event(self, event: ServerLifecycleEvent) -> None:
         for callback in self._lifecycle_event_callbacks.get(event, []):
+            logger.info(
+                self._log_prefix() + f"lifecycle event: {event.name} {callback}"
+            )
             callback(event)
 
     def _setup_notifications(self) -> None:
@@ -1105,6 +1110,9 @@ class AsyncServer(BaseServer):
 
     async def _on_lifecycle_event(self, event: ServerLifecycleEvent) -> None:
         for callback in self._lifecycle_event_callbacks.get(event, []):
+            logger.info(
+                self._log_prefix() + f"lifecycle event: {event.name} {callback}"
+            )
             if asyncio.iscoroutine(result := callback(event)):
                 await result
 
