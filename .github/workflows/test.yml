@@ -11,7 +11,7 @@ on:
 
 env:
   SC_ORIGIN: https://github.com/supercollider/supercollider.git
-  SC_BRANCH: Version-3.13.0
+  SC_BRANCH: develop
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}

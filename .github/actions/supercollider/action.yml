@@ -24,6 +24,7 @@ runs:
         echo HOMEBREW_NO_AUTO_UPDATE=1 >> $GITHUB_ENV;
         echo HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK=1 >> $GITHUB_ENV;
         echo HOMEBREW_NO_INSTALL_CLEANUP=1 >> $GITHUB_ENV;
+        echo SKIP_SIGNING=1 >> $GITHUB_ENV;
       shell: bash
     - name: '[macOS] Cache Homebrew'
       id: cache-homebrew
@@ -73,7 +74,10 @@ runs:
         brew install \
           fftw \
           jack \
-          portaudio
+          libsndfile \
+          portaudio \
+          readline \
+          --quiet
           # brew install --cask blackhole-16ch
       shell: bash
     - name: Setup Jack
@@ -123,7 +127,6 @@ runs:
         cmake \
           -DCMAKE_PREFIX_PATH=`brew --prefix qt5` \
           -DRULE_LAUNCH_COMPILE=ccache \
-          -DSC_VERIFY_APP=OFF \
           -DSC_ED=OFF \
           -DSC_EL=OFF \
           -DSC_IDE=OFF \
