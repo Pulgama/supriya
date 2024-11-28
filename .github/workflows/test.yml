@@ -106,7 +106,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest]
-        python-version: ["3.9", "3.10", "3.11", "3.12"]
+        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13-dev"]
         include:
         # supercollider 3.13 doesn't want to build on macos-13 or higher
         # - os: macos-13
@@ -119,9 +119,9 @@ jobs:
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v5
       with:
-        python-version: ${{ matrix.python-version }}
-        cache: pip
         cache-dependency-path: "**/pyproject.toml"
+        cache: pip
+        python-version: ${{ matrix.python-version }}
     - name: Upgrade pip
       run: python3 -m pip install -U pip
     - name: Install Supriya
