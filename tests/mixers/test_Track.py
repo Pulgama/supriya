@@ -12,6 +12,17 @@ from supriya.typing import DEFAULT, Default
 from .conftest import assert_diff, capture, debug_tree, does_not_raise
 
 
+@pytest_asyncio.fixture
+async def complex_session() -> Session:
+    session = Session()
+    await sesison.add_mixer()
+    mixer_one = session.mixers[0]
+    session.mixers[1]
+    await session.boot()
+    await session.quit()
+    return session
+
+
 @pytest.mark.parametrize("online", [False, True])
 @pytest.mark.parametrize(
     "expected_commands, expected_diff",
