@@ -48,9 +48,7 @@ docs = [
 ]
 ipython = [
   "jupyter",
-  "jupyter_contrib_nbextensions",
-  "jupyter_nbextensions_configurator",
-  "rise",
+  "jupyterlab-rise",
 ]
 test = [
   "black >= 24.0.0",
