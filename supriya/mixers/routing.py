@@ -57,7 +57,7 @@ class Connection(AllocatableComponent[A], Generic[A, S, T]):
     def _allocate(self, *, context: AsyncServer) -> bool:
         if not super()._allocate(context=context):
             return False
-        return self._reconcile(context)
+        return self._reconcile(context=context)
 
     def _allocate_synth(
         self,
@@ -76,21 +76,24 @@ class Connection(AllocatableComponent[A], Generic[A, S, T]):
             synthdef=PATCH_CABLE_2_2,
         )
 
-    def _delete(self) -> None:
-        super()._delete()
-        for component in [
-            self._cached_state.source_component,
-            self._cached_state.target_component,
-        ]:
-            if component:
-                component._unregister_dependency(self)
+    def _deallocate(self) -> None:
+        super()._deallocate()
+        # NOTE: Resetting dependencies and state guarantees that the component-
+        #       and node-tree reallocates idempotently on session reboot. In
+        #       practice, this doesn't matter, but it does ensure the test
+        #       suite doesn't need to special case node or bus IDs.
+        self._reconcile(new_state=self.State())
 
     def _get_synthdefs(self) -> List[SynthDef]:
         return [FB_PATCH_CABLE_2_2, PATCH_CABLE_2_2]
 
-    def _reconcile(self, context: Optional[AsyncServer] = None) -> bool:
-        new_state = self._resolve_state(context)
-        self._reconcile_dependencies(context, new_state)
+    def _reconcile(
+        self,
+        context: Optional[AsyncServer] = None,
+        new_state: Optional["Connection.State"] = None,
+    ) -> bool:
+        new_state = new_state or self._resolve_state(context)
+        self._reconcile_dependencies(new_state)
         self._reconcile_synth(context, new_state)
         self._cached_state = new_state
         return self._reconcile_deferment(new_state)
@@ -104,9 +107,7 @@ class Connection(AllocatableComponent[A], Generic[A, S, T]):
             return False
         return True
 
-    def _reconcile_dependencies(
-        self, context: Optional[AsyncServer], new_state: "Connection.State"
-    ) -> None:
+    def _reconcile_dependencies(self, new_state: "Connection.State") -> None:
         for new_component, old_component in [
             (new_state.source_component, self._cached_state.source_component),
             (new_state.target_component, self._cached_state.target_component),
@@ -215,19 +216,19 @@ class Connection(AllocatableComponent[A], Generic[A, S, T]):
 
     def _set_postfader(self, postfader: bool) -> None:
         self._postfader = postfader
-        self._reconcile(self._can_allocate())
+        self._reconcile(context=self._can_allocate())
 
     def _set_source(self, source: Optional[S]) -> None:
         if isinstance(source, AllocatableComponent) and self.mixer is not source.mixer:
             raise RuntimeError
         self._source = source
-        self._reconcile(self._can_allocate())
+        self._reconcile(context=self._can_allocate())
 
     def _set_target(self, target: Optional[T]) -> None:
         if isinstance(target, AllocatableComponent) and self.mixer is not target.mixer:
             raise RuntimeError
         self._target = target
-        self._reconcile(self._can_allocate())
+        self._reconcile(context=self._can_allocate())
 
     @classmethod
     def feedsback(

@@ -307,18 +307,20 @@ class AllocatableComponent(Component[C]):
             name=name,
         )
 
-    async def dump_tree(self) -> QueryTreeGroup:
+    async def dump_tree(self, annotated: bool = True) -> QueryTreeGroup:
         if self.session and self.session.status != BootStatus.ONLINE:
             raise RuntimeError
-        annotations: Dict[int, str] = {}
         tree = await cast(
             Awaitable[QueryTreeGroup],
             cast(Group, self._nodes[ComponentNames.GROUP]).dump_tree(),
         )
-        for component in self._walk():
-            if not isinstance(component, AllocatableComponent):
-                continue
-            address = component.address
-            for name, node in component._nodes.items():
-                annotations[node.id_] = f"{address}:{name}"
-        return tree.annotate(annotations)
+        if annotated:
+            annotations: Dict[int, str] = {}
+            for component in self._walk():
+                if not isinstance(component, AllocatableComponent):
+                    continue
+                address = component.address
+                for name, node in component._nodes.items():
+                    annotations[node.id_] = f"{address}:{name}"
+            return tree.annotate(annotations)
+        return tree

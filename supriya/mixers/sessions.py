@@ -1,6 +1,7 @@
 import asyncio
 import logging
-from typing import TYPE_CHECKING, Dict, List, Optional, Set
+import re
+from typing import TYPE_CHECKING, Dict, List, Optional, Sequence, Set, Union
 
 from ..clocks import AsyncClock
 from ..contexts import AsyncServer
@@ -46,6 +47,25 @@ class Session(Component):
         # add initial context and mixer
         self._contexts[(context := self._add_context())] = [mixer := Mixer(parent=self)]
         self._mixers[mixer] = context
+
+    def __getitem__(self, key: str) -> "Component":
+        if not isinstance(key, str):
+            raise ValueError(key)
+        elif not re.match(r"^[a-z_]+(\[\d+\])?(\.[a-z_]+(\[\d+\])?)*$", key):
+            raise ValueError(key)
+        item: Union[Component, Sequence[Component]] = self
+        for part in key.split("."):
+            if not (match := re.match(r"^([a-z_]+)(\[(\d+)\])?$", part)):
+                raise ValueError(key, part)
+            name, _, index = match.groups()
+            item = getattr(item, name)
+            if index is not None:
+                if not isinstance(item, Sequence):
+                    raise ValueError(item, index)
+                item = item[int(index)]
+        if isinstance(item, Sequence):
+            raise ValueError(item)
+        return item
 
     def __repr__(self) -> str:
         return f"<{type(self).__name__}>"
@@ -95,6 +115,9 @@ class Session(Component):
 
     async def boot(self) -> None:
         async with self._lock:
+            # reset state
+            for set_ in self._synthdefs.values():
+                set_.clear()
             # guard against concurrent boot / quits
             if self._status == BootStatus.OFFLINE:
                 self._quit_future = None
@@ -122,7 +145,7 @@ class Session(Component):
     async def dump_components(self) -> str:
         return ""
 
-    async def dump_tree(self) -> str:
+    async def dump_tree(self, annotated: bool = True) -> str:
         # what if components and query tree stuff was intermixed?
         # we fetch the node tree once per mixer
         # and then the node tree needs to get partitioned by subtrees
@@ -132,7 +155,7 @@ class Session(Component):
         for context, mixers in self._contexts.items():
             parts.append(repr(context))
             for mixer in mixers:
-                for line in str(await mixer.dump_tree()).splitlines():
+                for line in str(await mixer.dump_tree(annotated)).splitlines():
                     parts.append(f"    {line}")
         return "\n".join(parts)
 
@@ -146,7 +169,7 @@ class Session(Component):
                 for context, mixers in self._contexts.items():
                     for mixer in mixers:
                         with context.at():
-                            mixer._deallocate()
+                            mixer._deallocate_deep()
                 await asyncio.gather(*[context.quit() for context in self._contexts])
                 self._status = BootStatus.OFFLINE
                 self._quit_future.set_result(True)

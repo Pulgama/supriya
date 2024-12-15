@@ -344,7 +344,9 @@ class Track(TrackContainer[TrackContainer], DeviceContainer):
                 raise RuntimeError
             elif self in parent.parentage:
                 raise RuntimeError
-            elif index < 0 or index > len(parent.tracks):
+            elif index < 0:
+                raise RuntimeError
+            elif index and index >= len(parent.tracks):
                 raise RuntimeError
             # Reconfigure parentage and bail if this is a no-op
             old_parent, old_index = self._parent, 0
@@ -370,7 +372,7 @@ class Track(TrackContainer[TrackContainer], DeviceContainer):
                     self._nodes[ComponentNames.GROUP].move(
                         target_node=node_id, add_action=add_action
                     )
-            for component in self._dependents:
+            for component in sorted(self._dependents, key=lambda x: x.graph_order):
                 component._reconcile(context)
 
     async def set_active(self, active: bool = True) -> None:
