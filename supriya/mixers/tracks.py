@@ -323,6 +323,8 @@ class Track(TrackContainer[TrackContainer], DeviceContainer):
         self, target: TrackContainer, postfader: bool = True
     ) -> TrackSend:
         async with self._lock:
+            if self.mixer is not target.mixer:
+                raise RuntimeError
             self._sends.append(
                 send := TrackSend(parent=self, postfader=postfader, target=target)
             )
@@ -383,7 +385,7 @@ class Track(TrackContainer[TrackContainer], DeviceContainer):
         await self._input.set_source(input_)
 
     async def set_output(
-        self, output: Optional[Union[Default, TrackContainer]]
+        self, output: Optional[Union[BusGroup, Default, TrackContainer]]
     ) -> None:
         await self._output.set_target(output)
 
