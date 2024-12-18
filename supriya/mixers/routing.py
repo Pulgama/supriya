@@ -44,6 +44,8 @@ class Connection(AllocatableComponent[A], Generic[A, S, T]):
         name: str,
         source: Optional[S],
         target: Optional[T],
+        gain: float = 0.0,
+        inverted: bool = False,
         parent: Optional[A] = None,
         postfader: bool = True,
         writing: bool = True,
@@ -52,6 +54,8 @@ class Connection(AllocatableComponent[A], Generic[A, S, T]):
         self._cached_state = self.State()
         self._name = name
         self._postfader = postfader
+        self._gain = gain
+        self._inverted = inverted
         self._source = source
         self._target = target
         self._writing = writing
@@ -76,6 +80,7 @@ class Connection(AllocatableComponent[A], Generic[A, S, T]):
             in_=new_state.source_bus,
             out=new_state.target_bus,
             synthdef=PATCH_CABLE_2_2,
+            multiplier=-1 if new_state.inverted else 1
         )
 
     def _deallocate(self) -> None:
@@ -197,6 +202,7 @@ class Connection(AllocatableComponent[A], Generic[A, S, T]):
         )
         return self.State(
             feedsback=feedsback,
+            inverted=self._inverted,
             postfader=self._postfader,
             source_component=source_component,
             source_bus=source_bus,
@@ -217,6 +223,12 @@ class Connection(AllocatableComponent[A], Generic[A, S, T]):
         if target_component:
             target_bus = target_component._audio_buses.get(ComponentNames.MAIN)
         return target_component, target_bus
+
+    def _set_gain(self, gain: float) -> None:
+        self._gain = gain
+
+    def _set_inverted(self, inverted: bool) -> None:
+        self._inverted = inverted
 
     def _set_postfader(self, postfader: bool) -> None:
         self._postfader = postfader

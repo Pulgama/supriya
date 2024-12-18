@@ -321,7 +321,7 @@ class Track(TrackContainer[TrackContainer], DeviceContainer):
         return should_tear_down
 
     async def add_send(
-        self, target: TrackContainer, postfader: bool = True
+        self, target: TrackContainer, postfader: bool = True, inverted: bool = False
     ) -> TrackSend:
         async with self._lock:
             if self.mixer is not target.mixer:
