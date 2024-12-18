@@ -146,7 +146,7 @@ class Mixer(TrackContainer["Session"], DeviceContainer):
 
     @property
     def children(self) -> List[Component]:
-        return [*self._tracks, self._output]
+        return [*self._tracks, *self._devices, self._output]
 
     @property
     def context(self) -> Optional[AsyncServer]:
