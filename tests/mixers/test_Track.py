@@ -4,109 +4,11 @@ import pytest
 
 from supriya import BusGroup, OscBundle, OscMessage
 from supriya.mixers import Session
-from supriya.mixers.devices import Device, DeviceContainer
 from supriya.mixers.mixers import Mixer
-from supriya.mixers.synthdefs import DEVICE_DC_TESTER_2
 from supriya.mixers.tracks import Track, TrackContainer, TrackSend
 from supriya.typing import DEFAULT, Default
 
 from .conftest import assert_diff, capture, debug_tree, does_not_raise
-
-
-@pytest.mark.parametrize("online", [False, True])
-@pytest.mark.parametrize(
-    "target, expected_diff, expected_commands",
-    [
-        (
-            "mixers[0]",
-            """
-            --- initial
-            +++ mutation
-            @@ -76,6 +76,9 @@
-                     1004 supriya:meters:2 (session.mixers[0]:input-levels)
-                         in_: 16.0, out: 1.0
-                     1002 group (session.mixers[0]:devices)
-            +            1066 group (session.mixers[0].devices[0]:group)
-            +                1067 supriya:device-dc-tester:2 (session.mixers[0].devices[0]:synth)
-            +                    dc: 1.0, out: 0.0
-                     1003 supriya:channel-strip:2 (session.mixers[0]:channel-strip)
-                         active: 1.0, bus: 16.0, gain: c0, gate: 1.0
-                     1005 supriya:meters:2 (session.mixers[0]:output-levels)
-            """,
-            [
-                OscMessage("/d_recv", DEVICE_DC_TESTER_2.compile()),
-                OscMessage("/sync", 2),
-                OscBundle(
-                    contents=(
-                        OscMessage("/g_new", 1066, 1, 1002),
-                        OscMessage(
-                            "/s_new", "supriya:device-dc-tester:2", 1067, 1, 1066
-                        ),
-                    ),
-                ),
-            ],
-        ),
-        (
-            "mixers[0].tracks[0]",
-            """
-            --- initial
-            +++ mutation
-            @@ -41,6 +41,9 @@
-                             1010 supriya:meters:2 (session.mixers[0].tracks[0]:input-levels)
-                                 in_: 18.0, out: 7.0
-                             1008 group (session.mixers[0].tracks[0]:devices)
-            +                    1066 group (session.mixers[0].tracks[0].devices[0]:group)
-            +                        1067 supriya:device-dc-tester:2 (session.mixers[0].tracks[0].devices[0]:synth)
-            +                            dc: 1.0, out: 0.0
-                             1009 supriya:channel-strip:2 (session.mixers[0].tracks[0]:channel-strip)
-                                 active: c5, bus: 18.0, gain: c6, gate: 1.0
-                             1051 supriya:patch-cable:2x2 (session.mixers[0].tracks[0].sends[0]:synth)
-            """,
-            [
-                OscMessage("/d_recv", DEVICE_DC_TESTER_2.compile()),
-                OscMessage("/sync", 2),
-                OscBundle(
-                    contents=(
-                        OscMessage("/g_new", 1066, 1, 1008),
-                        OscMessage(
-                            "/s_new", "supriya:device-dc-tester:2", 1067, 1, 1066
-                        ),
-                    ),
-                ),
-            ],
-        ),
-    ],
-)
-@pytest.mark.asyncio
-async def test_Track_add_device(
-    complex_session: Tuple[Session, str],
-    expected_commands: List[Union[OscBundle, OscMessage]],
-    expected_diff: str,
-    online: bool,
-    target: str,
-) -> None:
-    # Pre-conditions
-    session, initial_tree = complex_session
-    if online:
-        await session.boot()
-    target_ = session[target]
-    assert isinstance(target_, DeviceContainer)
-    # Operation
-    with capture(session["mixers[0]"].context) as commands:
-        device = await target_.add_device()
-    # Post-conditions
-    assert isinstance(device, Device)
-    assert device in target_.devices
-    assert device.parent is target_
-    assert target_.devices[0] is device
-    if not online:
-        return
-    await assert_diff(
-        session,
-        expected_diff,
-        expected_initial_tree=initial_tree,
-    )
-    assert commands == expected_commands
 
 
 @pytest.mark.parametrize("online", [False, True])
@@ -376,135 +278,6 @@ async def test_Track_add_send(
         expected_initial_tree=initial_tree,
     )
     assert commands == expected_commands
-
-
-@pytest.mark.parametrize("online", [False, True])
-@pytest.mark.asyncio
-async def test_Track_add_track(
-    mixer: Mixer,
-    online: bool,
-    session: Session,
-    track: Track,
-) -> None:
-    # Pre-conditions
-    if online:
-        await session.boot()
-    # Operation
-    with capture(mixer.context) as commands:
-        child_track = await track.add_track()
-    # Post-conditions
-    assert child_track in track.tracks
-    assert child_track.parent is track
-    assert track.tracks[0] is child_track
-    if not online:
-        return
-    await assert_diff(
-        session,
-        expected_diff="""
-        --- initial
-        +++ mutation
-        @@ -3,6 +3,17 @@
-                 1001 group (session.mixers[0]:tracks)
-                     1006 group (session.mixers[0].tracks[0]:group)
-                         1007 group (session.mixers[0].tracks[0]:tracks)
-        +                    1014 group (session.mixers[0].tracks[0].tracks[0]:group)
-        +                        1015 group (session.mixers[0].tracks[0].tracks[0]:tracks)
-        +                        1018 supriya:meters:2 (session.mixers[0].tracks[0].tracks[0]:input-levels)
-        +                            in_: 20.0, out: 13.0
-        +                        1016 group (session.mixers[0].tracks[0].tracks[0]:devices)
-        +                        1017 supriya:channel-strip:2 (session.mixers[0].tracks[0].tracks[0]:channel-strip)
-        +                            active: c11, bus: 20.0, gain: c12, gate: 1.0
-        +                        1019 supriya:meters:2 (session.mixers[0].tracks[0].tracks[0]:output-levels)
-        +                            in_: 20.0, out: 15.0
-        +                        1020 supriya:patch-cable:2x2 (session.mixers[0].tracks[0].tracks[0].output:synth)
-        +                            active: c11, gain: 0.0, gate: 1.0, in_: 20.0, out: 18.0
-                         1010 supriya:meters:2 (session.mixers[0].tracks[0]:input-levels)
-                             in_: 18.0, out: 7.0
-                         1008 group (session.mixers[0].tracks[0]:devices)
-        """,
-        expected_initial_tree="""
-        <session.contexts[0]>
-            NODE TREE 1000 group (session.mixers[0]:group)
-                1001 group (session.mixers[0]:tracks)
-                    1006 group (session.mixers[0].tracks[0]:group)
-                        1007 group (session.mixers[0].tracks[0]:tracks)
-                        1010 supriya:meters:2 (session.mixers[0].tracks[0]:input-levels)
-                            in_: 18.0, out: 7.0
-                        1008 group (session.mixers[0].tracks[0]:devices)
-                        1009 supriya:channel-strip:2 (session.mixers[0].tracks[0]:channel-strip)
-                            active: c5, bus: 18.0, gain: c6, gate: 1.0
-                        1011 supriya:meters:2 (session.mixers[0].tracks[0]:output-levels)
-                            in_: 18.0, out: 9.0
-                        1012 supriya:patch-cable:2x2 (session.mixers[0].tracks[0].output:synth)
-                            active: c5, gain: 0.0, gate: 1.0, in_: 18.0, out: 16.0
-                1004 supriya:meters:2 (session.mixers[0]:input-levels)
-                    in_: 16.0, out: 1.0
-                1002 group (session.mixers[0]:devices)
-                1003 supriya:channel-strip:2 (session.mixers[0]:channel-strip)
-                    active: 1.0, bus: 16.0, gain: c0, gate: 1.0
-                1005 supriya:meters:2 (session.mixers[0]:output-levels)
-                    in_: 16.0, out: 3.0
-                1013 supriya:patch-cable:2x2 (session.mixers[0].output:synth)
-                    active: 1.0, gain: 0.0, gate: 1.0, in_: 16.0, out: 0.0
-        """,
-    )
-    assert commands == [
-        OscBundle(
-            contents=(
-                OscMessage("/c_set", 11, 1.0, 12, 0.0),
-                OscMessage("/c_fill", 13, 2, 0.0, 15, 2, 0.0),
-                OscMessage("/g_new", 1014, 1, 1007, 1015, 0, 1014, 1016, 1, 1014),
-                OscMessage(
-                    "/s_new",
-                    "supriya:channel-strip:2",
-                    1017,
-                    1,
-                    1014,
-                    "active",
-                    "c11",
-                    "bus",
-                    20.0,
-                    "gain",
-                    "c12",
-                ),
-                OscMessage(
-                    "/s_new",
-                    "supriya:meters:2",
-                    1018,
-                    3,
-                    1015,
-                    "in_",
-                    20.0,
-                    "out",
-                    13.0,
-                ),
-                OscMessage(
-                    "/s_new",
-                    "supriya:meters:2",
-                    1019,
-                    3,
-                    1017,
-                    "in_",
-                    20.0,
-                    "out",
-                    15.0,
-                ),
-            ),
-        ),
-        OscMessage(
-            "/s_new",
-            "supriya:patch-cable:2x2",
-            1020,
-            1,
-            1014,
-            "active",
-            "c11",
-            "in_",
-            20.0,
-            "out",
-            18.0,
-        ),
-    ]
 
 
 @pytest.mark.xfail
@@ -1306,7 +1079,7 @@ async def test_Track_move(
 
 @pytest.mark.xfail
 @pytest.mark.parametrize("online", [False, True])
-@pytest.mark.parametrize("expected_commands, expected_diff", [([], "")])
+@pytest.mark.parametrize("target, expected_commands, expected_diff", [([], "")])
 @pytest.mark.asyncio
 async def test_Track_set_active(
     complex_session: Tuple[Session, str],
@@ -1338,7 +1111,71 @@ async def test_Track_set_active(
 
 @pytest.mark.xfail
 @pytest.mark.parametrize("online", [False, True])
-@pytest.mark.parametrize("expected_commands, expected_diff", [([], "")])
+@pytest.mark.parametrize(
+    "source, target, maybe_raises, expected_commands, expected_diff",
+    [
+        # none
+        (
+            "mixers[0].tracks[0].tracks[0]",
+            None,
+            does_not_raise,
+            [],
+            """
+            """,
+        ),
+        # self
+        (
+            "mixers[0].tracks[0].tracks[0]",
+            "mixers[0].tracks[0].tracks[0]",
+            pytest.raises(RuntimeError),
+            [],
+            "",
+        ),
+        # parent
+        (
+            "mixers[0].tracks[0].tracks[0]",
+            "mixers[0].tracks[0]",
+            does_not_raise,
+            [],
+            "",
+        ),
+        # child
+        (
+            "mixers[0].tracks[0].tracks[0]",
+            "mixers[0].tracks[0].tracks[0].tracks[0]",
+            does_not_raise,
+            [],
+            """
+            """,
+        ),
+        # auntie
+        (
+            "mixers[0].tracks[0].tracks[0]",
+            "mixers[0].tracks[1]",
+            does_not_raise,
+            [],
+            """
+            """,
+        ),
+        # sibling
+        (
+            "mixers[0].tracks[0].tracks[0]",
+            "mixers[0].tracks[0].tracks[1]",
+            does_not_raise,
+            [],
+            """
+            """,
+        ),
+        # other mixer
+        (
+            "mixers[0].tracks[0]",
+            "mixers[1].tracks[0]",
+            pytest.raises(RuntimeError),
+            [],
+            "",
+        ),
+    ],
+)
 @pytest.mark.asyncio
 async def test_Track_set_input(
     complex_session: Tuple[Session, str],
@@ -1447,7 +1284,7 @@ async def test_Track_set_input(
             """
             """,
         ),
-        # sibiling
+        # sibling
         (
             "mixers[0].tracks[0].tracks[0]",
             "mixers[0].tracks[0].tracks[1]",
