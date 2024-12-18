@@ -201,4 +201,6 @@ async def complex_session() -> Tuple[Session, str]:
         """
     )
     await session.quit()
+    for component in session._walk():
+        print(component.address, component.graph_order)
     return session, initial_tree

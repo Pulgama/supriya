@@ -42,7 +42,7 @@ class Device(AllocatableComponent):
             )
             self._nodes[ComponentNames.SYNTH] = group.add_synth(
                 add_action=AddAction.ADD_TO_TAIL,
-                bus=main_audio_bus,
+                out=main_audio_bus,
                 synthdef=DEVICE_DC_TESTER_2,
             )
         return True

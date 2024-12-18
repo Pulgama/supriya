@@ -75,6 +75,7 @@ class TrackInput(Connection["Track", Union[BusGroup, TrackContainer], "Track"]):
             parent=parent,
             source=source,
             target=parent,
+            writing=False,
         )
 
     def _allocate_synth(
@@ -91,7 +92,7 @@ class TrackInput(Connection["Track", Union[BusGroup, TrackContainer], "Track"]):
             add_action=AddAction.ADD_BEFORE,
             in_=new_state.source_bus,
             out=new_state.target_bus,
-            synthdef=PATCH_CABLE_2_2,
+            synthdef=FB_PATCH_CABLE_2_2 if new_state.feedsback else PATCH_CABLE_2_2,
         )
 
     async def set_source(self, source: Optional[Union[BusGroup, "Track"]]) -> None:
@@ -256,7 +257,7 @@ class Track(TrackContainer[TrackContainer], DeviceContainer):
         )
         target_node = self.parent._nodes[ComponentNames.TRACKS]
         with context.at():
-            active_control_bus.set(1.0)
+            active_control_bus.set(float(self._is_active))
             gain_control_bus.set(0.0)
             input_levels_control_bus.set(0.0)
             output_levels_control_bus.set(0.0)
@@ -377,9 +378,11 @@ class Track(TrackContainer[TrackContainer], DeviceContainer):
             for component in sorted(self._dependents, key=lambda x: x.graph_order):
                 component._reconcile(context)
 
-    async def set_active(self, active: bool = True) -> None:
+    async def set_active(self, is_active: bool = True) -> None:
         async with self._lock:
-            pass
+            self._is_active = is_active
+            if self._can_allocate():
+                self._control_buses[ComponentNames.ACTIVE].set(float(self._is_active))
 
     async def set_input(self, input_: Optional[Union[BusGroup, "Track"]]) -> None:
         await self._input.set_source(input_)
@@ -428,8 +431,28 @@ class Track(TrackContainer[TrackContainer], DeviceContainer):
         return self._input._source
 
     @property
+    def input_levels(self) -> Tuple[float, ...]:
+        if (
+            (bus := self._control_buses.get(ComponentNames.INPUT_LEVELS))
+            and (context := self._can_allocate())
+            and context._shm
+        ):
+            return context._shm[bus.id_ : bus.id_ + len(bus)]
+        return (0.0,) * 2
+
+    @property
     def output(self) -> Optional[Union[BusGroup, Default, TrackContainer]]:
         return self._output._target
+
+    @property
+    def output_levels(self) -> Tuple[float, ...]:
+        if (
+            (bus := self._control_buses.get(ComponentNames.OUTPUT_LEVELS))
+            and (context := self._can_allocate())
+            and context._shm
+        ):
+            return context._shm[bus.id_ : bus.id_ + len(bus)]
+        return (0.0,) * 2
 
     @property
     def sends(self) -> List[TrackSend]:

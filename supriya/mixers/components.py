@@ -65,13 +65,11 @@ class Component(Generic[C]):
         self._lock = asyncio.Lock()
         self._parent: Optional[C] = parent
         self._dependents: Set[Component] = set()
+        self._is_active = True
         self._feedback_dependents: Set[Component] = set()
 
     def __repr__(self) -> str:
         return f"<{type(self).__name__}>"
-
-    def _activate(self) -> None:
-        self._is_active = True
 
     async def _allocate_deep(self, *, context: AsyncServer) -> None:
         if self.session is None:
@@ -105,9 +103,6 @@ class Component(Generic[C]):
     def _deallocate_deep(self) -> None:
         for component in self._walk():
             component._deallocate()
-
-    def _deactivate(self) -> None:
-        self._is_active = False
 
     def _delete(self) -> None:
         self._deallocate_deep()
@@ -152,8 +147,7 @@ class Component(Generic[C]):
         if isinstance(self, component_class_):
             yield self
         for child in self.children:
-            if isinstance(child, component_class_):
-                yield from child._walk(component_class_)
+            yield from child._walk(component_class_)
 
     @property
     def address(self) -> str:
@@ -206,6 +200,18 @@ class Component(Generic[C]):
                 return component
         return None
 
+    @property
+    def short_address(self) -> str:
+        address = self.address
+        for from_, to_ in [
+            ("session.", ""),
+            ("tracks", "t"),
+            ("devices", "d"),
+            ("mixers", "m"),
+        ]:
+            address = address.replace(from_, to_)
+        return address
+
 
 class AllocatableComponent(Component[C]):
 
@@ -222,23 +228,12 @@ class AllocatableComponent(Component[C]):
         self._is_active: bool = True
         self._nodes: Dict[str, Node] = {}
 
-    def _activate(self) -> None:
-        super()._activate()
-        if group := self._nodes.get(ComponentNames.GROUP):
-            group.unpause()
-            group.set(active=1)
-
     def _can_allocate(self) -> Optional[AsyncServer]:
         if (
             context := self.context
         ) is not None and context.boot_status == BootStatus.ONLINE:
             return context
         return None
-
-    def _deactivate(self) -> None:
-        super()._deactivate()
-        if group := self._nodes.get(ComponentNames.GROUP):
-            group.set(active=0)
 
     def _deallocate(self) -> None:
         super()._deallocate()

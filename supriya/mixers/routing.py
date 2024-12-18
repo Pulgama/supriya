@@ -46,6 +46,7 @@ class Connection(AllocatableComponent[A], Generic[A, S, T]):
         target: Optional[T],
         parent: Optional[A] = None,
         postfader: bool = True,
+        writing: bool = True,
     ) -> None:
         super().__init__(parent=parent)
         self._cached_state = self.State()
@@ -53,6 +54,7 @@ class Connection(AllocatableComponent[A], Generic[A, S, T]):
         self._postfader = postfader
         self._source = source
         self._target = target
+        self._writing = writing
 
     def _allocate(self, *, context: AsyncServer) -> bool:
         if not super()._allocate(context=context):
@@ -161,10 +163,12 @@ class Connection(AllocatableComponent[A], Generic[A, S, T]):
         try:
             source_order = source_component.graph_order if source_component else None
             target_order = target_component.graph_order if target_component else None
-            feedsback = self.feedsback(source_order, target_order)
+            feedsback = self.feedsback(
+                source_order, target_order, writing=self._writing
+            )
         except Exception:
             pass
-        if feedsback and target_component:
+        if self._writing and feedsback and target_component:
             target_bus = target_component._register_feedback(context, self)
         return feedsback, target_bus
 
@@ -235,18 +239,21 @@ class Connection(AllocatableComponent[A], Generic[A, S, T]):
         cls,
         source_order: Optional[Tuple[int, ...]],
         target_order: Optional[Tuple[int, ...]],
+        writing: bool = True,
     ) -> Optional[bool]:
         if source_order is None or target_order is None:
             return None
         length = min(len(target_order), len(source_order))
         # If source_order is shallower than target_order, source_order might contain target_order
         if len(source_order) < len(target_order):
-            return target_order[:length] <= source_order
+            feedsback = target_order[:length] <= source_order
         # If target_order is shallower than source_order, target_order might contain source_order
         elif len(target_order) < len(source_order):
-            return target_order < source_order[:length]
+            feedsback = target_order < source_order[:length]
         # If orders are same depth, check difference strictly
-        return target_order <= source_order
+        else:
+            feedsback = target_order <= source_order
+        return feedsback
 
     @property
     def address(self) -> str:
