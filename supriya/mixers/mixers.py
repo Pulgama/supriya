@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, List, Optional, Tuple
+from typing import TYPE_CHECKING, List, Optional, Set, Tuple
 
 from ..contexts import AsyncServer, BusGroup
 from ..enums import AddAction
@@ -64,6 +64,7 @@ class Mixer(TrackContainer["Session"], DeviceContainer):
         TrackContainer.__init__(self)
         self._tracks.append(Track(parent=self))
         self._output = MixerOutput(parent=self)
+        self._soloed_tracks: Set[Track] = set()
 
     def _allocate(self, context: AsyncServer) -> bool:
         if not super()._allocate(context=context):

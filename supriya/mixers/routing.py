@@ -32,6 +32,7 @@ class Connection(AllocatableComponent[A], Generic[A, S, T]):
     @dataclasses.dataclass
     class State:
         feedsback: Optional[bool] = None
+        inverted: bool = False
         postfader: bool = True
         source_bus: Optional[BusGroup] = None
         source_component: Optional[AllocatableComponent] = None
@@ -80,7 +81,7 @@ class Connection(AllocatableComponent[A], Generic[A, S, T]):
             in_=new_state.source_bus,
             out=new_state.target_bus,
             synthdef=PATCH_CABLE_2_2,
-            multiplier=-1 if new_state.inverted else 1
+            multiplier=-1 if new_state.inverted else 1,
         )
 
     def _deallocate(self) -> None:

@@ -25,7 +25,7 @@ from .conftest import assert_diff, capture
                      1002 group (session.mixers[0]:devices)
             +            1066 group (session.mixers[0].devices[0]:group)
             +                1067 supriya:device-dc-tester:2 (session.mixers[0].devices[0]:synth)
-            +                    dc: 1.0, out: 0.0
+            +                    dc: 1.0, out: 16.0
                      1003 supriya:channel-strip:2 (session.mixers[0]:channel-strip)
                          active: 1.0, bus: 16.0, gain: c0, gate: 1.0
                      1005 supriya:meters:2 (session.mixers[0]:output-levels)
@@ -37,7 +37,13 @@ from .conftest import assert_diff, capture
                     contents=(
                         OscMessage("/g_new", 1066, 1, 1002),
                         OscMessage(
-                            "/s_new", "supriya:device-dc-tester:2", 1067, 1, 1066
+                            "/s_new",
+                            "supriya:device-dc-tester:2",
+                            1067,
+                            1,
+                            1066,
+                            "out",
+                            16.0,
                         ),
                     ),
                 ),
@@ -54,7 +60,7 @@ from .conftest import assert_diff, capture
                              1008 group (session.mixers[0].tracks[0]:devices)
             +                    1066 group (session.mixers[0].tracks[0].devices[0]:group)
             +                        1067 supriya:device-dc-tester:2 (session.mixers[0].tracks[0].devices[0]:synth)
-            +                            dc: 1.0, out: 0.0
+            +                            dc: 1.0, out: 18.0
                              1009 supriya:channel-strip:2 (session.mixers[0].tracks[0]:channel-strip)
                                  active: c5, bus: 18.0, gain: c6, gate: 1.0
                              1051 supriya:patch-cable:2x2 (session.mixers[0].tracks[0].sends[0]:synth)
@@ -66,7 +72,13 @@ from .conftest import assert_diff, capture
                     contents=(
                         OscMessage("/g_new", 1066, 1, 1008),
                         OscMessage(
-                            "/s_new", "supriya:device-dc-tester:2", 1067, 1, 1066
+                            "/s_new",
+                            "supriya:device-dc-tester:2",
+                            1067,
+                            1,
+                            1066,
+                            "out",
+                            18.0,
                         ),
                     ),
                 ),

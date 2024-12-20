@@ -225,6 +225,8 @@ class Track(TrackContainer[TrackContainer], DeviceContainer):
         TrackContainer.__init__(self)
         self._feedback = TrackFeedback(parent=self)
         self._input = TrackInput(parent=self)
+        self._is_muted: bool = False
+        self._is_soloed: bool = False
         self._output = TrackOutput(parent=self)
         # TODO: Are sends the purview of track containers in general?
         self._sends: List[TrackSend] = []
@@ -257,7 +259,7 @@ class Track(TrackContainer[TrackContainer], DeviceContainer):
         )
         target_node = self.parent._nodes[ComponentNames.TRACKS]
         with context.at():
-            active_control_bus.set(float(self._is_active))
+            self._update_activation(True)
             gain_control_bus.set(0.0)
             input_levels_control_bus.set(0.0)
             output_levels_control_bus.set(0.0)
@@ -312,6 +314,9 @@ class Track(TrackContainer[TrackContainer], DeviceContainer):
             )
         return self._get_audio_bus(context, name=ComponentNames.FEEDBACK)
 
+    def _set_soloed(self, soloed: bool) -> None:
+        self._is_soloed = soloed
+
     def _unregister_feedback(self, dependent: "Component") -> bool:
         if should_tear_down := super()._unregister_feedback(dependent):
             # check if feedback should be torn down
@@ -319,6 +324,12 @@ class Track(TrackContainer[TrackContainer], DeviceContainer):
                 bus_group.free()
             self._feedback._set_source(None)
         return should_tear_down
+
+    def _update_activation(self, force=True) -> None:
+        was_active = self._is_active
+        self._is_active = not self._is_muted
+        if self._can_allocate() and (force or (was_active != self._is_active)):
+            self._control_buses[ComponentNames.ACTIVE].set(float(self._is_active))
 
     async def add_send(
         self, target: TrackContainer, postfader: bool = True, inverted: bool = False
@@ -378,14 +389,13 @@ class Track(TrackContainer[TrackContainer], DeviceContainer):
             for component in sorted(self._dependents, key=lambda x: x.graph_order):
                 component._reconcile(context)
 
-    async def set_active(self, is_active: bool = True) -> None:
-        async with self._lock:
-            self._is_active = is_active
-            if self._can_allocate():
-                self._control_buses[ComponentNames.ACTIVE].set(float(self._is_active))
-
     async def set_input(self, input_: Optional[Union[BusGroup, "Track"]]) -> None:
         await self._input.set_source(input_)
+
+    async def set_muted(self, muted: bool = True) -> None:
+        async with self._lock:
+            self._is_muted = muted
+            self._update_activation()
 
     async def set_output(
         self, output: Optional[Union[BusGroup, Default, TrackContainer]]

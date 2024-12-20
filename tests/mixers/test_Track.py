@@ -1080,80 +1080,6 @@ async def test_Track_move(
 
 @pytest.mark.parametrize("online", [False, True])
 @pytest.mark.parametrize(
-    "target, active, expected_commands, expected_levels",
-    [
-        (
-            "mixers[0].tracks[0]",
-            False,
-            [OscMessage("/c_set", 5, 0.0)],
-            [
-                ("m[0].t[0]", (0.0, 0.0)),
-                ("m[0].t[0].t[0]", (1.0, 1.0)),
-                ("m[0].t[0].t[0].t[0]", (1.0, 1.0)),
-                ("m[0].t[0].t[1]", (0.0, 0.0)),
-                ("m[0].t[1]", (0.0, 0.0)),
-                ("m[0].t[2]", (0.0, 0.0)),
-                ("m[1].t[0]", (0.0, 0.0)),
-            ],
-        ),
-        (
-            "mixers[0].tracks[0].tracks[0]",
-            False,
-            [OscMessage("/c_set", 11, 0.0)],
-            [
-                ("m[0].t[0]", (0.0, 0.0)),
-                ("m[0].t[0].t[0]", (0.0, 0.0)),
-                ("m[0].t[0].t[0].t[0]", (1.0, 1.0)),
-                ("m[0].t[0].t[1]", (0.0, 0.0)),
-                ("m[0].t[1]", (0.0, 0.0)),
-                ("m[0].t[2]", (0.0, 0.0)),
-                ("m[1].t[0]", (0.0, 0.0)),
-            ],
-        ),
-    ],
-)
-@pytest.mark.asyncio
-async def test_Track_set_active(
-    active: bool,
-    complex_session: Tuple[Session, str],
-    expected_commands: List[Union[OscBundle, OscMessage]],
-    expected_levels: List[Tuple[float, ...]],
-    online: bool,
-    target: str,
-) -> None:
-    # Pre-conditions
-    session, _ = complex_session
-    if online:
-        await session.boot()
-        await session.mixers[0].tracks[0].tracks[0].tracks[0].add_device()
-        await session.mixers[0].tracks[1].sends[0].delete()
-        await asyncio.sleep(0.25)
-        initial_tree = await debug_tree(session)
-    target_ = session[target]
-    assert isinstance(target_, Track)
-    # Operation
-    with capture(session["mixers[0]"].context) as commands:
-        await target_.set_active(False)
-    # Post-conditions
-    if not online:
-        return
-    await assert_diff(
-        session,
-        "",
-        expected_initial_tree=initial_tree,
-    )
-    assert commands == expected_commands
-    assert [
-        (
-            track.short_address,
-            tuple(round(x, 6) for x in cast(Track, track).output_levels),
-        )
-        for track in session._walk(Track)
-    ] == expected_levels
-
-
-@pytest.mark.parametrize("online", [False, True])
-@pytest.mark.parametrize(
     "source, target, maybe_raises, expected_commands, expected_diff",
     [
         # none
@@ -1402,6 +1328,80 @@ async def test_Track_set_input(
         expected_initial_tree=initial_tree,
     )
     assert commands == expected_commands
+
+
+@pytest.mark.parametrize("online", [False, True])
+@pytest.mark.parametrize(
+    "target, muted, expected_commands, expected_levels",
+    [
+        (
+            "mixers[0].tracks[0]",
+            True,
+            [OscMessage("/c_set", 5, 0.0)],
+            [
+                ("m[0].t[0]", (0.0, 0.0)),
+                ("m[0].t[0].t[0]", (1.0, 1.0)),
+                ("m[0].t[0].t[0].t[0]", (1.0, 1.0)),
+                ("m[0].t[0].t[1]", (0.0, 0.0)),
+                ("m[0].t[1]", (0.0, 0.0)),
+                ("m[0].t[2]", (0.0, 0.0)),
+                ("m[1].t[0]", (0.0, 0.0)),
+            ],
+        ),
+        (
+            "mixers[0].tracks[0].tracks[0]",
+            True,
+            [OscMessage("/c_set", 11, 0.0)],
+            [
+                ("m[0].t[0]", (0.0, 0.0)),
+                ("m[0].t[0].t[0]", (0.0, 0.0)),
+                ("m[0].t[0].t[0].t[0]", (1.0, 1.0)),
+                ("m[0].t[0].t[1]", (0.0, 0.0)),
+                ("m[0].t[1]", (0.0, 0.0)),
+                ("m[0].t[2]", (0.0, 0.0)),
+                ("m[1].t[0]", (0.0, 0.0)),
+            ],
+        ),
+    ],
+)
+@pytest.mark.asyncio
+async def test_Track_set_muted(
+    muted: bool,
+    complex_session: Tuple[Session, str],
+    expected_commands: List[Union[OscBundle, OscMessage]],
+    expected_levels: List[Tuple[float, ...]],
+    online: bool,
+    target: str,
+) -> None:
+    # Pre-conditions
+    session, _ = complex_session
+    if online:
+        await session.boot()
+        await session.mixers[0].tracks[0].tracks[0].tracks[0].add_device()
+        await session.mixers[0].tracks[1].sends[0].delete()
+        await asyncio.sleep(0.25)
+        initial_tree = await debug_tree(session)
+    target_ = session[target]
+    assert isinstance(target_, Track)
+    # Operation
+    with capture(session["mixers[0]"].context) as commands:
+        await target_.set_muted(muted)
+    # Post-conditions
+    if not online:
+        return
+    await assert_diff(
+        session,
+        "",
+        expected_initial_tree=initial_tree,
+    )
+    assert commands == expected_commands
+    assert [
+        (
+            track.short_address,
+            tuple(round(x, 6) for x in cast(Track, track).output_levels),
+        )
+        for track in session._walk(Track)
+    ] == expected_levels
 
 
 @pytest.mark.parametrize("online", [False, True])
