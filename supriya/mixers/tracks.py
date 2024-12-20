@@ -314,9 +314,6 @@ class Track(TrackContainer[TrackContainer], DeviceContainer):
             )
         return self._get_audio_bus(context, name=ComponentNames.FEEDBACK)
 
-    def _set_soloed(self, soloed: bool) -> None:
-        self._is_soloed = soloed
-
     def _unregister_feedback(self, dependent: "Component") -> bool:
         if should_tear_down := super()._unregister_feedback(dependent):
             # check if feedback should be torn down
@@ -326,8 +323,16 @@ class Track(TrackContainer[TrackContainer], DeviceContainer):
         return should_tear_down
 
     def _update_activation(self, force=True) -> None:
+        if not (mixer := self.mixer):
+            return
         was_active = self._is_active
         self._is_active = not self._is_muted
+        if mixer._soloed_tracks:
+            self._is_active = self._is_active and any(
+                track._is_soloed
+                for track in self._iterate_parentage()
+                if isinstance(track, Track)
+            )
         if self._can_allocate() and (force or (was_active != self._is_active)):
             self._control_buses[ComponentNames.ACTIVE].set(float(self._is_active))
 
@@ -404,7 +409,20 @@ class Track(TrackContainer[TrackContainer], DeviceContainer):
 
     async def set_soloed(self, soloed: bool = True, exclusive: bool = True) -> None:
         async with self._lock:
-            pass
+            self._is_soloed = soloed
+            if not (mixer := self.mixer):
+                return
+            if soloed:
+                if exclusive:
+                    mixer._soloed_tracks.discard(self)
+                    for track in mixer._soloed_tracks:
+                        track._is_soloed = False
+                mixer._soloed_tracks.add(self)
+            else:
+                mixer._soloed_tracks.discard(self)
+            for component in mixer._walk(Track):
+                if isinstance(component, Track):
+                    component._update_activation()
 
     async def ungroup(self) -> None:
         async with self._lock:
