@@ -1332,20 +1332,20 @@ async def test_Track_set_input(
 
 @pytest.mark.parametrize("online", [False, True])
 @pytest.mark.parametrize(
-    "target, muted, expected_commands, expected_levels",
+    "target, muted, expected_commands, expected_state",
     [
         (
             "mixers[0].tracks[0]",
             True,
             [OscMessage("/c_set", 5, 0.0)],
             [
-                ("m[0].t[0]", (0.0, 0.0)),
-                ("m[0].t[0].t[0]", (1.0, 1.0)),
-                ("m[0].t[0].t[0].t[0]", (1.0, 1.0)),
-                ("m[0].t[0].t[1]", (0.0, 0.0)),
-                ("m[0].t[1]", (0.0, 0.0)),
-                ("m[0].t[2]", (0.0, 0.0)),
-                ("m[1].t[0]", (0.0, 0.0)),
+                ("m[0].t[0]", (0.0, 0.0), False),
+                ("m[0].t[0].t[0]", (1.0, 1.0), True),
+                ("m[0].t[0].t[0].t[0]", (1.0, 1.0), True),
+                ("m[0].t[0].t[1]", (0.0, 0.0), True),
+                ("m[0].t[1]", (0.0, 0.0), True),
+                ("m[0].t[2]", (0.0, 0.0), True),
+                ("m[1].t[0]", (0.0, 0.0), True),
             ],
         ),
         (
@@ -1353,13 +1353,13 @@ async def test_Track_set_input(
             True,
             [OscMessage("/c_set", 11, 0.0)],
             [
-                ("m[0].t[0]", (0.0, 0.0)),
-                ("m[0].t[0].t[0]", (0.0, 0.0)),
-                ("m[0].t[0].t[0].t[0]", (1.0, 1.0)),
-                ("m[0].t[0].t[1]", (0.0, 0.0)),
-                ("m[0].t[1]", (0.0, 0.0)),
-                ("m[0].t[2]", (0.0, 0.0)),
-                ("m[1].t[0]", (0.0, 0.0)),
+                ("m[0].t[0]", (0.0, 0.0), True),
+                ("m[0].t[0].t[0]", (0.0, 0.0), False),
+                ("m[0].t[0].t[0].t[0]", (1.0, 1.0), True),
+                ("m[0].t[0].t[1]", (0.0, 0.0), True),
+                ("m[0].t[1]", (0.0, 0.0), True),
+                ("m[0].t[2]", (0.0, 0.0), True),
+                ("m[1].t[0]", (0.0, 0.0), True),
             ],
         ),
     ],
@@ -1369,7 +1369,7 @@ async def test_Track_set_muted(
     muted: bool,
     complex_session: Tuple[Session, str],
     expected_commands: List[Union[OscBundle, OscMessage]],
-    expected_levels: List[Tuple[float, ...]],
+    expected_state: List[Tuple[str, Tuple[float, ...], bool]],
     online: bool,
     target: str,
 ) -> None:
@@ -1399,9 +1399,10 @@ async def test_Track_set_muted(
         (
             track.short_address,
             tuple(round(x, 6) for x in cast(Track, track).output_levels),
+            track.is_active,
         )
         for track in session._walk(Track)
-    ] == expected_levels
+    ] == expected_state
 
 
 @pytest.mark.parametrize("online", [False, True])

@@ -469,6 +469,10 @@ class Track(TrackContainer[TrackContainer], DeviceContainer):
         return (0.0,) * 2
 
     @property
+    def is_active(self) -> bool:
+        return self._is_active
+
+    @property
     def output(self) -> Optional[Union[BusGroup, Default, TrackContainer]]:
         return self._output._target
 
