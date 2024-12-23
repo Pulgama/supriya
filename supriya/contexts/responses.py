@@ -466,8 +466,10 @@ class QueryTreeGroup(QueryTreeNode):
         node_pattern = re.compile(r"^\s*(\d+) (\S+)$")
         control_pattern = re.compile(r"\w+: \S+")
         lines = string.splitlines()
-        if not lines[0].startswith("NODE TREE"):
-            raise ValueError
+        while not lines[0].startswith("NODE TREE"):
+            lines.pop(0)
+        if not lines:
+            raise ValueError(string)
         stack: List[QueryTreeGroup] = [
             QueryTreeGroup(node_id=int(lines.pop(0).rpartition(" ")[-1]))
         ]

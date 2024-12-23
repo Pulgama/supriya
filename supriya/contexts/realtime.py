@@ -11,7 +11,9 @@ import warnings
 from collections.abc import Sequence as SequenceABC
 from typing import (
     TYPE_CHECKING,
+    Any,
     Callable,
+    Coroutine,
     Dict,
     Iterable,
     List,
@@ -357,7 +359,7 @@ class BaseServer(Context):
     def on(
         self,
         event: Union[ServerLifecycleEvent, Iterable[ServerLifecycleEvent]],
-        callback: Callable[[ServerLifecycleEvent], None],
+        callback: Callable[[ServerLifecycleEvent], Optional[Coroutine[Any, Any, None]]],
     ) -> None:
         if isinstance(event, ServerLifecycleEvent):
             events_ = [event]
@@ -554,6 +556,9 @@ class Server(BaseServer):
 
     def _on_lifecycle_event(self, event: ServerLifecycleEvent) -> None:
         for callback in self._lifecycle_event_callbacks.get(event, []):
+            logger.info(
+                self._log_prefix() + f"lifecycle event: {event.name} {callback}"
+            )
             callback(event)
 
     def _setup_notifications(self) -> None:
@@ -600,7 +605,7 @@ class Server(BaseServer):
         self._lifecycle_thread.start()
         if not (self._boot_future.result()):
             if (self._shutdown_future.result()) == ServerShutdownEvent.PROCESS_PANIC:
-                raise ServerCannotBoot
+                raise ServerCannotBoot(self._process_protocol.error_text)
         return self
 
     def connect(self, *, options: Optional[Options] = None, **kwargs) -> "Server":
@@ -1105,6 +1110,9 @@ class AsyncServer(BaseServer):
 
     async def _on_lifecycle_event(self, event: ServerLifecycleEvent) -> None:
         for callback in self._lifecycle_event_callbacks.get(event, []):
+            logger.info(
+                self._log_prefix() + f"lifecycle event: {event.name} {callback}"
+            )
             if asyncio.iscoroutine(result := callback(event)):
                 await result
 
@@ -1150,7 +1158,7 @@ class AsyncServer(BaseServer):
         self._lifecycle_task = loop.create_task(self._lifecycle(owned=True))
         if not (await self._boot_future):
             if (await self._shutdown_future) == ServerShutdownEvent.PROCESS_PANIC:
-                raise ServerCannotBoot
+                raise ServerCannotBoot(self._process_protocol.error_text)
         return self
 
     async def connect(
