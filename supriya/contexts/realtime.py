@@ -605,7 +605,7 @@ class Server(BaseServer):
         self._lifecycle_thread.start()
         if not (self._boot_future.result()):
             if (self._shutdown_future.result()) == ServerShutdownEvent.PROCESS_PANIC:
-                raise ServerCannotBoot
+                raise ServerCannotBoot(self._process_protocol.error_text)
         return self
 
     def connect(self, *, options: Optional[Options] = None, **kwargs) -> "Server":
@@ -1158,7 +1158,7 @@ class AsyncServer(BaseServer):
         self._lifecycle_task = loop.create_task(self._lifecycle(owned=True))
         if not (await self._boot_future):
             if (await self._shutdown_future) == ServerShutdownEvent.PROCESS_PANIC:
-                raise ServerCannotBoot
+                raise ServerCannotBoot(self._process_protocol.error_text)
         return self
 
     async def connect(

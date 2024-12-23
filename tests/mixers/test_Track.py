@@ -1,5 +1,5 @@
 import asyncio
-from typing import Dict, List, Optional, Tuple, Union, cast
+from typing import Dict, List, Optional, Tuple, Union
 
 import pytest
 
@@ -1332,11 +1332,10 @@ async def test_Track_set_input(
 
 @pytest.mark.parametrize("online", [False, True])
 @pytest.mark.parametrize(
-    "target, muted, expected_commands, expected_state",
+    "actions, expected_commands, expected_state",
     [
         (
-            "mixers[0].tracks[0]",
-            True,
+            [("mixers[0].tracks[0]", [True])],
             [OscMessage("/c_set", 5, 0.0)],
             [
                 ("m[0].t[0]", (0.0, 0.0), False),
@@ -1349,8 +1348,7 @@ async def test_Track_set_input(
             ],
         ),
         (
-            "mixers[0].tracks[0].tracks[0]",
-            True,
+            [("mixers[0].tracks[0].tracks[0]", [True])],
             [OscMessage("/c_set", 11, 0.0)],
             [
                 ("m[0].t[0]", (0.0, 0.0), True),
@@ -1366,12 +1364,11 @@ async def test_Track_set_input(
 )
 @pytest.mark.asyncio
 async def test_Track_set_muted(
-    muted: bool,
+    actions: List[Tuple[str, List[bool]]],
     complex_session: Tuple[Session, str],
     expected_commands: List[Union[OscBundle, OscMessage]],
     expected_state: List[Tuple[str, Tuple[float, ...], bool]],
     online: bool,
-    target: str,
 ) -> None:
     # Pre-conditions
     session, _ = complex_session
@@ -1381,11 +1378,12 @@ async def test_Track_set_muted(
         await session.mixers[0].tracks[1].sends[0].delete()
         await asyncio.sleep(0.25)
         initial_tree = await debug_tree(session)
-    target_ = session[target]
-    assert isinstance(target_, Track)
     # Operation
     with capture(session["mixers[0]"].context) as commands:
-        await target_.set_muted(muted)
+        for target, args in actions:
+            target_ = session[target]
+            assert isinstance(target_, Track)
+            await target_.set_muted(*args)
     # Post-conditions
     if not online:
         return
@@ -1398,10 +1396,11 @@ async def test_Track_set_muted(
     assert [
         (
             track.short_address,
-            tuple(round(x, 6) for x in cast(Track, track).output_levels),
+            tuple(round(x, 6) for x in track.output_levels),
             track.is_active,
         )
         for track in session._walk(Track)
+        if isinstance(track, Track)
     ] == expected_state
 
 
@@ -1673,42 +1672,125 @@ async def test_Track_set_output(
     assert commands == expected_commands
 
 
-@pytest.mark.xfail
 @pytest.mark.parametrize("online", [False, True])
 @pytest.mark.parametrize(
-    "expected_commands, expected_diff",
+    "actions, expected_commands, expected_state",
     [
-        ([], ""),
+        (
+            [
+                ("mixers[0].tracks[0]", [True]),
+            ],
+            [
+                OscMessage("/c_set", 5, 1.0),
+                OscMessage("/c_set", 11, 1.0),
+                OscMessage("/c_set", 17, 1.0),
+                OscMessage("/c_set", 23, 1.0),
+                OscMessage("/c_set", 29, 0.0),
+                OscMessage("/c_set", 35, 0.0),
+            ],
+            [
+                ("m[0].t[0]", (1.0, 1.0), True),
+                ("m[0].t[0].t[0]", (1.0, 1.0), True),
+                ("m[0].t[0].t[0].t[0]", (1.0, 1.0), True),
+                ("m[0].t[0].t[1]", (0.0, 0.0), True),
+                ("m[0].t[1]", (0.0, 0.0), False),
+                ("m[0].t[2]", (0.0, 0.0), False),
+                ("m[1].t[0]", (0.0, 0.0), True),
+            ],
+        ),
+        (
+            [
+                ("mixers[0].tracks[0].tracks[0]", [True]),
+            ],
+            [
+                OscMessage("/c_set", 5, 0.0),
+                OscMessage("/c_set", 11, 1.0),
+                OscMessage("/c_set", 17, 1.0),
+                OscMessage("/c_set", 23, 0.0),
+                OscMessage("/c_set", 29, 0.0),
+                OscMessage("/c_set", 35, 0.0),
+            ],
+            [
+                ("m[0].t[0]", (0.0, 0.0), False),
+                ("m[0].t[0].t[0]", (1.0, 1.0), True),
+                ("m[0].t[0].t[0].t[0]", (1.0, 1.0), True),
+                ("m[0].t[0].t[1]", (0.0, 0.0), False),
+                ("m[0].t[1]", (0.0, 0.0), False),
+                ("m[0].t[2]", (0.0, 0.0), False),
+                ("m[1].t[0]", (0.0, 0.0), True),
+            ],
+        ),
+        (
+            [
+                ("mixers[0].tracks[0]", [True]),
+                ("mixers[0].tracks[1]", [True, False]),
+            ],
+            [
+                OscMessage("/c_set", 5, 1.0),
+                OscMessage("/c_set", 11, 1.0),
+                OscMessage("/c_set", 17, 1.0),
+                OscMessage("/c_set", 23, 1.0),
+                OscMessage("/c_set", 29, 0.0),
+                OscMessage("/c_set", 35, 0.0),
+                OscMessage("/c_set", 5, 1.0),
+                OscMessage("/c_set", 11, 1.0),
+                OscMessage("/c_set", 17, 1.0),
+                OscMessage("/c_set", 23, 1.0),
+                OscMessage("/c_set", 29, 1.0),
+                OscMessage("/c_set", 35, 0.0),
+            ],
+            [
+                ("m[0].t[0]", (1.0, 1.0), True),
+                ("m[0].t[0].t[0]", (1.0, 1.0), True),
+                ("m[0].t[0].t[0].t[0]", (1.0, 1.0), True),
+                ("m[0].t[0].t[1]", (0.0, 0.0), True),
+                ("m[0].t[1]", (1.0, 1.0), True),
+                ("m[0].t[2]", (0.0, 0.0), False),
+                ("m[1].t[0]", (0.0, 0.0), True),
+            ],
+        ),
     ],
 )
 @pytest.mark.asyncio
 async def test_Track_set_soloed(
+    actions: List[Tuple[str, List[bool]]],
     complex_session: Tuple[Session, str],
     expected_commands: List[Union[OscBundle, OscMessage]],
-    expected_diff: str,
+    expected_state: List[Tuple[str, Tuple[float, ...], bool]],
     online: bool,
-    target: str,
 ) -> None:
     # Pre-conditions
     session, initial_tree = complex_session
     if online:
         await session.boot()
-    target_ = session[target]
-    assert isinstance(target_, Track)
+        await session.mixers[0].tracks[0].tracks[0].tracks[0].add_device()
+        await session.mixers[0].tracks[1].sends[0].delete()
+        await asyncio.sleep(0.25)
+        initial_tree = await debug_tree(session)
     # Operation
     with capture(session["mixers[0]"].context) as commands:
-        await target_.set_soloed()
+        for target, args in actions:
+            target_ = session[target]
+            assert isinstance(target_, Track)
+            await target_.set_soloed(*args)
     # Post-conditions
     if not online:
-        raise Exception
+        return
     await assert_diff(
         session,
-        expected_diff,
-        expected_initial_tree="""
-        """,
+        "",
+        expected_initial_tree=initial_tree,
     )
     assert commands == expected_commands
-    raise Exception
+    assert [
+        (
+            track.short_address,
+            tuple(round(x, 6) for x in track.output_levels),
+            track.is_active,
+        )
+        for track in session._walk(Track)
+        if isinstance(track, Track)
+    ] == expected_state
 
 
 @pytest.mark.xfail
