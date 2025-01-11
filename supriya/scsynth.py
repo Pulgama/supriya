@@ -405,28 +405,29 @@ class SyncProcessProtocol(ProcessProtocol):
         self.exit_future: concurrent.futures.Future[int] = concurrent.futures.Future()
 
     def _run_process_thread(self, options: Options) -> None:
-        self.process = subprocess.Popen(
+        with subprocess.Popen(
             list(options),
             stderr=subprocess.STDOUT,
             stdout=subprocess.PIPE,
             start_new_session=True,
-        )
-        read_thread = threading.Thread(
-            args=(),
-            daemon=True,
-            target=self._run_read_thread,
-        )
-        read_thread.start()
-        self.process.wait()
-        was_quitting = self.status == BootStatus.QUITTING
-        self.status = BootStatus.OFFLINE
-        self.exit_future.set_result(self.process.returncode)
-        if not self.boot_future.done():
-            self.boot_future.set_result(False)
-        if was_quitting and self.on_quit_callback:
-            self.on_quit_callback()
-        elif not was_quitting and self.on_panic_callback:
-            self.on_panic_callback()
+        ) as process:
+            self.process = process
+            read_thread = threading.Thread(
+                args=(),
+                daemon=True,
+                target=self._run_read_thread,
+            )
+            read_thread.start()
+            self.process.wait()
+            was_quitting = self.status == BootStatus.QUITTING
+            self.status = BootStatus.OFFLINE
+            self.exit_future.set_result(self.process.returncode)
+            if not self.boot_future.done():
+                self.boot_future.set_result(False)
+            if was_quitting and self.on_quit_callback:
+                self.on_quit_callback()
+            elif not was_quitting and self.on_panic_callback:
+                self.on_panic_callback()
 
     def _run_read_thread(self) -> None:
         while self.status in (BootStatus.BOOTING, BootStatus.ONLINE):
