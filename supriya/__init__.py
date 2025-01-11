@@ -24,6 +24,8 @@ from .contexts import (
     Node,
     Score,
     Server,
+    ServerLifecycleEvent,
+    ServerShutdownEvent,
     Synth,
 )
 from .enums import (  # noqa
@@ -90,6 +92,8 @@ __all__ = [
     "SampleFormat",
     "Score",
     "Server",
+    "ServerLifecycleEvent",
+    "ServerShutdownEvent",
     "Synth",
     "SynthDef",
     "SynthDefBuilder",

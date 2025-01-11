@@ -14,7 +14,13 @@ from .entities import (
     Synth,
 )
 from .nonrealtime import Score
-from .realtime import AsyncServer, BaseServer, Server
+from .realtime import (
+    AsyncServer,
+    BaseServer,
+    Server,
+    ServerLifecycleEvent,
+    ServerShutdownEvent,
+)
 
 __all__ = [
     "AsyncServer",
@@ -29,5 +35,7 @@ __all__ = [
     "Node",
     "Score",
     "Server",
+    "ServerLifecycleEvent",
+    "ServerShutdownEvent",
     "Synth",
 ]
