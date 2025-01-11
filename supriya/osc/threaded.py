@@ -74,8 +74,8 @@ class ThreadedOscProtocol(OscProtocol):
             Queue()
         )
         self.lock = threading.RLock()
-        self.osc_server = self._server_factory(self.ip_address, self.port)
-        self.osc_server_thread = threading.Thread(target=self.osc_server.serve_forever)
+        # self.osc_server = self._server_factory(self.ip_address, self.port)
+        # self.osc_server_thread = threading.Thread(target=self.osc_server.serve_forever)
 
     ### PRIVATE METHODS ###
 
